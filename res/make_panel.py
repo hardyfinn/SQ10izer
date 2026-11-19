@@ -66,7 +66,7 @@ add(text("SQ10izer", 6.0, 11.4, 4.8, FONT_BOLD, INK, anchor="start", spacing=0.0
 wx, wy = 33.5, 9.8
 add(f'<path d="M{wx} {wy} h2.2 v-1.3 h2.2 v2.1 h2.2 v-0.6 h2.2 v-1.9 h2.2 v1.4 h2.2" '
     f'stroke="{AMBER}" stroke-width="0.55" fill="none" stroke-linejoin="round" stroke-linecap="round"/>')
-add(text("\u00b130 cent step offsets", W - 6.0, 11.0, 2.6, FONT_MED, SOFT, anchor="end"))
+add(text("unquantised step offsets", W - 6.0, 11.0, 2.6, FONT_MED, SOFT, anchor="end"))
 
 # step area: a darker band per row, step numbers above each knob
 for r, y in enumerate(ROW_Y):
@@ -89,7 +89,7 @@ add(text("TRIG", X_RAND, JL_Y, JACK))
 add(text("RESET", X_CLOCK, JL_Y, JACK))
 # small scale marks under the RANGE and LENGTH knobs
 add(text("0", X_STRENGTH - 5.6, CTRL_Y + 6.6, 2.4, FONT_MED, SOFT))
-add(text("30c", X_STRENGTH + 6.2, CTRL_Y + 6.6, 2.4, FONT_MED, SOFT))
+add(text("40c", X_STRENGTH + 6.2, CTRL_Y + 6.6, 2.4, FONT_MED, SOFT))
 add(text("1", X_LENGTH - 5.6, CTRL_Y + 6.6, 2.4, FONT_MED, SOFT))
 add(text("16", X_LENGTH + 5.8, CTRL_Y + 6.6, 2.4, FONT_MED, SOFT))
 

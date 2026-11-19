@@ -1,7 +1,7 @@
 {
   "slug": "SQ10izer",
   "name": "SQ10izer",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "license": "GPL-3.0-or-later",
   "brand": "Haer",
   "author": "Haer",
@@ -16,7 +16,7 @@
     {
       "slug": "SQ10izer",
       "name": "SQ10izer",
-      "description": "16 steps of small, unquantised pitch offsets (up to +-30 cents) added to a V/OCT signal on each clock, with random generation, loop length and reset: the hand-tuned wobble of an early analogue step sequencer",
+      "description": "16 steps of small, unquantised pitch offsets (up to +-40 cents, scaled live by STRENGTH) added to a V/OCT signal on each clock, with random generation, loop length and reset: the hand-tuned wobble of an early analogue step sequencer",
       "tags": ["Sequencer", "Random", "Polyphonic"]
     }
   ]

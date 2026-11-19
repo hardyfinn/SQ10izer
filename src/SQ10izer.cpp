@@ -1,5 +1,5 @@
-// SQ10izer: 16 steps of small, unquantised pitch offsets (up to +-30 cents),
-// added to a V/OCT signal on each clock. Gives a quantised sequencer the
+// SQ10izer: 16 steps of small, unquantised pitch offsets, added to a V/OCT
+// signal on each clock. STRENGTH scales all 16 steps at once (up to +-40 cents). Gives a quantised sequencer the
 // slightly-off, hand-dialled tuning of an early analogue step sequencer.
 #include "plugin.hpp"
 
@@ -13,7 +13,25 @@ static const float BOT_Y = 113.0f;
 static const float X_IN = 14.0f, X_OFFSET = 60.0f, X_OUT = 86.0f;
 
 static const int NUM_STEPS = 16;
-static const float MAX_CENTS = 30.f;
+static const float MAX_CENTS = 40.f;
+
+struct SQ10izer;
+
+// Shows each step knob as its real offset in cents (knob position x STRENGTH).
+struct StepQuantity : ParamQuantity {
+	float strength();
+	float getDisplayValue() override {
+		return getValue() * strength();
+	}
+	void setDisplayValue(float v) override {
+		float s = strength();
+		if (s > 0.f)
+			setValue(clamp(v / s, -1.f, 1.f));
+	}
+	std::string getString() override {
+		return string::f("%s: %+.0f%% = %+.1f cents", getLabel().c_str(), getValue() * 100.f, getDisplayValue());
+	}
+};
 
 struct SQ10izer : Module {
 	enum ParamIds {
@@ -49,15 +67,13 @@ struct SQ10izer : Module {
 	dsp::ClockDivider lightDivider;
 
 	int step = -1;          // -1 = just reset: the next clock plays step 1
-	bool gentle = false;    // right-click: random values mostly small
-	bool randInLoop = false; // right-click: RANDOMISE only changes the steps in the loop
 
 	SQ10izer() {
 		config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
 		for (int i = 0; i < NUM_STEPS; i++) {
-			configParam(STEP_PARAM + i, -MAX_CENTS, MAX_CENTS, 0.f, string::f("Step %d", i + 1), " cents");
+			configParam<StepQuantity>(STEP_PARAM + i, -1.f, 1.f, 0.f, string::f("Step %d", i + 1), " cents");
 		}
-		configParam(STRENGTH_PARAM, 0.f, MAX_CENTS, 15.f, "Random strength (furthest a random step can land)", " cents");
+		configParam(STRENGTH_PARAM, 0.f, MAX_CENTS, 20.f, "Strength (how far a step at full turn shifts the pitch)", " cents");
 		configParam(LENGTH_PARAM, 1.f, 16.f, 16.f, "Length", " steps");
 		getParamQuantity(LENGTH_PARAM)->snapEnabled = true;
 		getParamQuantity(STRENGTH_PARAM)->randomizeEnabled = false;
@@ -67,7 +83,7 @@ struct SQ10izer : Module {
 		configInput(CLOCK_INPUT, "Clock");
 		configInput(RESET_INPUT, "Reset");
 		configInput(RAND_INPUT, "Randomise trigger");
-		configInput(STRENGTH_INPUT, "Random strength CV (+1 V = +3 cents)");
+		configInput(STRENGTH_INPUT, "Strength CV (+1 V = +4 cents)");
 		configInput(LENGTH_INPUT, "Length CV (+1 V = +1.5 steps)");
 		configInput(VOCT_INPUT, "V/OCT");
 		configOutput(VOCT_OUTPUT, "V/OCT plus step offset");
@@ -80,7 +96,7 @@ struct SQ10izer : Module {
 	}
 
 	float strengthCents() {
-		float s = params[STRENGTH_PARAM].getValue() + inputs[STRENGTH_INPUT].getVoltage() * 3.f;
+		float s = params[STRENGTH_PARAM].getValue() + inputs[STRENGTH_INPUT].getVoltage() * 4.f;
 		return clamp(s, 0.f, MAX_CENTS);
 	}
 
@@ -89,20 +105,10 @@ struct SQ10izer : Module {
 		return clamp((int) std::round(l), 1, NUM_STEPS);
 	}
 
-	// A random offset in cents, no further than STRENGTH from in tune.
-	float randomValue() {
-		float s = strengthCents();
-		if (gentle) {
-			// bell-shaped: most steps a little off, now and then one further out
-			return clamp(random::normal() * 0.35f * s, -s, s);
-		}
-		return (random::uniform() * 2.f - 1.f) * s;
-	}
-
+	// New random positions for all 16 step knobs (-100% to +100%).
 	void randomiseSteps() {
-		int n = randInLoop ? length() : NUM_STEPS;
-		for (int i = 0; i < n; i++)
-			params[STEP_PARAM + i].setValue(randomValue());
+		for (int i = 0; i < NUM_STEPS; i++)
+			params[STEP_PARAM + i].setValue(random::uniform() * 2.f - 1.f);
 		randFlash.trigger(0.15f);
 	}
 
@@ -138,7 +144,7 @@ struct SQ10izer : Module {
 			randomiseSteps();
 
 		int playing = step < 0 ? 0 : step;
-		float offset = params[STEP_PARAM + playing].getValue() / 1200.f;
+		float offset = params[STEP_PARAM + playing].getValue() * strengthCents() / 1200.f;
 
 		int channels = std::max(1, inputs[VOCT_INPUT].getChannels());
 		outputs[VOCT_OUTPUT].setChannels(channels);
@@ -159,19 +165,20 @@ struct SQ10izer : Module {
 
 	json_t* dataToJson() override {
 		json_t* root = json_object();
-		json_object_set_new(root, "gentle", json_boolean(gentle));
-		json_object_set_new(root, "randInLoop", json_boolean(randInLoop));
 		json_object_set_new(root, "step", json_integer(step));
 		return root;
 	}
 
 	void dataFromJson(json_t* root) override {
 		json_t* j;
-		if ((j = json_object_get(root, "gentle"))) gentle = json_boolean_value(j);
-		if ((j = json_object_get(root, "randInLoop"))) randInLoop = json_boolean_value(j);
 		if ((j = json_object_get(root, "step"))) step = clamp((int) json_integer_value(j), -1, NUM_STEPS - 1);
 	}
 };
+
+float StepQuantity::strength() {
+	SQ10izer* m = dynamic_cast<SQ10izer*>(module);
+	return m ? m->strengthCents() : 20.f;
+}
 
 struct SQ10izerWidget : ModuleWidget {
 	SQ10izerWidget(SQ10izer* module) {
@@ -203,19 +210,6 @@ struct SQ10izerWidget : ModuleWidget {
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(X_IN, BOT_Y)), module, SQ10izer::VOCT_INPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(X_OFFSET, BOT_Y)), module, SQ10izer::OFFSET_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(X_OUT, BOT_Y)), module, SQ10izer::VOCT_OUTPUT));
-	}
-
-	void appendContextMenu(Menu* menu) override {
-		SQ10izer* module = dynamic_cast<SQ10izer*>(this->module);
-		if (!module)
-			return;
-		menu->addChild(new MenuSeparator);
-		menu->addChild(createBoolPtrMenuItem("Gentle random (mostly small offsets)", "", &module->gentle));
-		menu->addChild(createBoolPtrMenuItem("RANDOMISE only changes steps inside LENGTH", "", &module->randInLoop));
-		menu->addChild(createMenuItem("Zero all steps", "", [=]() {
-			for (int i = 0; i < NUM_STEPS; i++)
-				module->params[SQ10izer::STEP_PARAM + i].setValue(0.f);
-		}));
 	}
 };
 
