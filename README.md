@@ -41,3 +41,7 @@ make dist RACK_DIR=...           # or let GitHub Actions build it
 ```
 
 The version stays 2.x: Rack 2 skips plugins numbered 3.x.
+
+## Licence
+
+MIT (see `LICENSE.txt`): you're free to use, change, port (VST/CLAP, other platforms, hardware) and share this code, as long as the copyright notice and licence text come along. Fonts on the panel (Inter, Climate Crisis) are under the SIL Open Font Licence.
